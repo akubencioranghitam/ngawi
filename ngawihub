@@ -3,8 +3,8 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 getgenv().SecureMode = true -- Enable Secure Mode to reduce detection
 
 local Window = Rayfield:CreateWindow({
-    Name = "Ngawi Hub",
-    LoadingTitle = "lol ngawi",
+    Name = "ESP Hub",
+    LoadingTitle = "ESP Loader",
     LoadingSubtitle = "By Raja Malapetaka",
     ConfigurationSaving = {
         Enabled = true,
@@ -20,7 +20,9 @@ local ESP = {
     Enabled = false,
     TeamCheck = false,
     Color = Color3.fromRGB(255, 0, 0),
-    Transparency = 0.5
+    Transparency = 0.5,
+    ShowTracer = true,
+    ShowText = true
 }
 
 local camera = workspace.CurrentCamera
@@ -45,10 +47,15 @@ local function removeESP(player)
     end
 end
 
+local function clearAllESP()
+    for player, _ in pairs(drawings) do
+        removeESP(player)
+    end
+end
+
 local function updateESP()
-    if not ESP.Enabled then return end
     for player, box in pairs(drawings) do
-        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if ESP.Enabled and player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local rootPart = player.Character.HumanoidRootPart
             local position, onScreen = camera:WorldToViewportPoint(rootPart.Position)
             local distance = (camera.CFrame.Position - rootPart.Position).Magnitude
@@ -65,14 +72,14 @@ local function updateESP()
                 text.Position = Vector2.new(position.X, position.Y - size)
                 text.Text = string.format("%.1f meters", distance)
                 text.Color = ESP.Color
-                text.Visible = true
+                text.Visible = ESP.ShowText
 
                 local tracer = tracers[player]
                 tracer.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
                 tracer.To = Vector2.new(position.X, position.Y)
                 tracer.Transparency = ESP.Transparency
                 tracer.Color = ESP.Color
-                tracer.Visible = true
+                tracer.Visible = ESP.ShowTracer
             else
                 box.Visible = false
                 textLabels[player].Visible = false
@@ -85,7 +92,7 @@ local function updateESP()
 end
 
 local function createESP(player)
-    if player ~= players.LocalPlayer then
+    if not drawings[player] and player ~= players.LocalPlayer then
         local espBox = Drawing.new("Square")
         espBox.Thickness = 2
         espBox.Filled = false
@@ -125,12 +132,37 @@ end
 
 runService.RenderStepped:Connect(updateESP)
 
-local Toggle = Tab:CreateToggle({
+local ToggleESP = Tab:CreateToggle({
     Name = "Enable ESP",
     CurrentValue = false,
     Flag = "ToggleESP",
     Callback = function(Value)
         ESP.Enabled = Value
+        if Value then
+            for _, player in pairs(players:GetPlayers()) do
+                createESP(player)
+            end
+        else
+            clearAllESP()
+        end
+    end
+})
+
+local ToggleTracer = Tab:CreateToggle({
+    Name = "Enable Tracer",
+    CurrentValue = true,
+    Flag = "ToggleTracer",
+    Callback = function(Value)
+        ESP.ShowTracer = Value
+    end
+})
+
+local ToggleText = Tab:CreateToggle({
+    Name = "Enable Text",
+    CurrentValue = true,
+    Flag = "ToggleText",
+    Callback = function(Value)
+        ESP.ShowText = Value
     end
 })
 
