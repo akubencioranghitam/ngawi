@@ -4,8 +4,8 @@ getgenv().SecureMode = true -- Enable Secure Mode to reduce detection
 
 local Window = Rayfield:CreateWindow({
     Name = "NGAWI Hub",
-    LoadingTitle = "Kanjut Loader",
-    LoadingSubtitle = "By Raja Malapetaka",
+    LoadingTitle = "Ini Bikinan Gw",
+    LoadingSubtitle = "Sang Raja Malapetaka",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "ESPSettings",
@@ -18,11 +18,12 @@ local Tab = Window:CreateTab("ESP Controls", 4483362458)
 
 local ESP = {
     Enabled = false,
+    ShowBox = true,
     TeamCheck = false,
     Color = Color3.fromRGB(255, 0, 0),
     Transparency = 0.5,
     ShowTracer = true,
-    ShowText = true
+    ShowDistance = true
 }
 
 local camera = workspace.CurrentCamera
@@ -66,13 +67,13 @@ local function updateESP()
                 box.Position = Vector2.new(position.X - size / 2, position.Y - size * 0.75)
                 box.Transparency = ESP.Transparency
                 box.Color = ESP.Color
-                box.Visible = true
+                box.Visible = ESP.ShowBox
 
                 local text = textLabels[player]
                 text.Position = Vector2.new(position.X, position.Y - size)
                 text.Text = string.format("%.1f meters", distance)
-                text.Color = ESP.Color
-                text.Visible = ESP.ShowText
+                text.Color = Color3.fromRGB(255, 255, 255) -- Keep text color white
+                text.Visible = ESP.ShowDistance
 
                 local tracer = tracers[player]
                 tracer.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
@@ -103,6 +104,7 @@ local function createESP(player)
         espText.Center = true
         espText.Outline = true
         espText.Visible = false
+        espText.Color = Color3.fromRGB(255, 255, 255) -- Ensure text is always white
         
         local tracer = Drawing.new("Line")
         tracer.Thickness = 1
@@ -148,6 +150,15 @@ local ToggleESP = Tab:CreateToggle({
     end
 })
 
+local ToggleBox = Tab:CreateToggle({
+    Name = "Enable Box",
+    CurrentValue = true,
+    Flag = "ToggleBox",
+    Callback = function(Value)
+        ESP.ShowBox = Value
+    end
+})
+
 local ToggleTracer = Tab:CreateToggle({
     Name = "Enable Tracer",
     CurrentValue = true,
@@ -157,12 +168,12 @@ local ToggleTracer = Tab:CreateToggle({
     end
 })
 
-local ToggleText = Tab:CreateToggle({
-    Name = "Enable Text",
+local ToggleDistance = Tab:CreateToggle({
+    Name = "Enable Distance",
     CurrentValue = true,
-    Flag = "ToggleText",
+    Flag = "ToggleDistance",
     Callback = function(Value)
-        ESP.ShowText = Value
+        ESP.ShowDistance = Value
     end
 })
 
@@ -175,11 +186,6 @@ local ColorPicker = Tab:CreateColorPicker({
         for _, box in pairs(drawings) do
             if box then
                 box.Color = Color
-            end
-        end
-        for _, text in pairs(textLabels) do
-            if text then
-                text.Color = Color
             end
         end
         for _, tracer in pairs(tracers) do
