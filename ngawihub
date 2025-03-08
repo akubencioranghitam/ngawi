@@ -3,8 +3,8 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 getgenv().SecureMode = true -- Enable Secure Mode to reduce detection
 
 local Window = Rayfield:CreateWindow({
-    Name = "ESP Hub",
-    LoadingTitle = "ESP Loader",
+    Name = "NGAWI Hub",
+    LoadingTitle = "Kanjut Loader",
     LoadingSubtitle = "By Raja Malapetaka",
     ConfigurationSaving = {
         Enabled = true,
