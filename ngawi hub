@@ -1,0 +1,183 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+getgenv().SecureMode = true -- Enable Secure Mode to reduce detection
+
+local Window = Rayfield:CreateWindow({
+    Name = "ESP Hub",
+    LoadingTitle = "ESP Loader",
+    LoadingSubtitle = "By Raja Malapetaka",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "ESPSettings",
+        FileName = "ESP_Config"
+    },
+    KeySystem = false
+})
+
+local Tab = Window:CreateTab("ESP Controls", 4483362458)
+
+local ESP = {
+    Enabled = false,
+    TeamCheck = false,
+    Color = Color3.fromRGB(255, 0, 0),
+    Transparency = 0.5
+}
+
+local camera = workspace.CurrentCamera
+local players = game:GetService("Players")
+local runService = game:GetService("RunService")
+local drawings = {}
+local textLabels = {}
+local tracers = {}
+
+local function removeESP(player)
+    if drawings[player] then
+        drawings[player]:Remove()
+        drawings[player] = nil
+    end
+    if textLabels[player] then
+        textLabels[player]:Remove()
+        textLabels[player] = nil
+    end
+    if tracers[player] then
+        tracers[player]:Remove()
+        tracers[player] = nil
+    end
+end
+
+local function updateESP()
+    if not ESP.Enabled then return end
+    for player, box in pairs(drawings) do
+        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = player.Character.HumanoidRootPart
+            local position, onScreen = camera:WorldToViewportPoint(rootPart.Position)
+            local distance = (camera.CFrame.Position - rootPart.Position).Magnitude
+
+            if onScreen then
+                local size = math.clamp(2000 / position.Z, 20, 300)
+                box.Size = Vector2.new(size, size * 1.5)
+                box.Position = Vector2.new(position.X - size / 2, position.Y - size * 0.75)
+                box.Transparency = ESP.Transparency
+                box.Color = ESP.Color
+                box.Visible = true
+
+                local text = textLabels[player]
+                text.Position = Vector2.new(position.X, position.Y - size)
+                text.Text = string.format("%.1f meters", distance)
+                text.Color = ESP.Color
+                text.Visible = true
+
+                local tracer = tracers[player]
+                tracer.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
+                tracer.To = Vector2.new(position.X, position.Y)
+                tracer.Transparency = ESP.Transparency
+                tracer.Color = ESP.Color
+                tracer.Visible = true
+            else
+                box.Visible = false
+                textLabels[player].Visible = false
+                tracers[player].Visible = false
+            end
+        else
+            removeESP(player)
+        end
+    end
+end
+
+local function createESP(player)
+    if player ~= players.LocalPlayer then
+        local espBox = Drawing.new("Square")
+        espBox.Thickness = 2
+        espBox.Filled = false
+        espBox.Visible = false
+        
+        local espText = Drawing.new("Text")
+        espText.Size = 16
+        espText.Center = true
+        espText.Outline = true
+        espText.Visible = false
+        
+        local tracer = Drawing.new("Line")
+        tracer.Thickness = 1
+        tracer.Visible = false
+        
+        drawings[player] = espBox
+        textLabels[player] = espText
+        tracers[player] = tracer
+    end
+end
+
+players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        createESP(player)
+    end)
+end)
+
+players.PlayerRemoving:Connect(function(player)
+    removeESP(player)
+end)
+
+for _, player in pairs(players:GetPlayers()) do
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        createESP(player)
+    end
+end
+
+runService.RenderStepped:Connect(updateESP)
+
+local Toggle = Tab:CreateToggle({
+    Name = "Enable ESP",
+    CurrentValue = false,
+    Flag = "ToggleESP",
+    Callback = function(Value)
+        ESP.Enabled = Value
+    end
+})
+
+local ColorPicker = Tab:CreateColorPicker({
+    Name = "ESP Color",
+    Flag = "ESPColor",
+    Color = ESP.Color,
+    Callback = function(Color)
+        ESP.Color = Color
+        for _, box in pairs(drawings) do
+            if box then
+                box.Color = Color
+            end
+        end
+        for _, text in pairs(textLabels) do
+            if text then
+                text.Color = Color
+            end
+        end
+        for _, tracer in pairs(tracers) do
+            if tracer then
+                tracer.Color = Color
+            end
+        end
+    end
+})
+
+local Slider = Tab:CreateSlider({
+    Name = "Transparency",
+    Range = {0, 1},
+    Increment = 0.1,
+    Suffix = "Transparency",
+    CurrentValue = ESP.Transparency,
+    Flag = "SliderTransparency",
+    Callback = function(Value)
+        ESP.Transparency = Value
+        for _, box in pairs(drawings) do
+            if box then
+                box.Transparency = Value
+            end
+        end
+        for _, tracer in pairs(tracers) do
+            if tracer then
+                tracer.Transparency = Value
+            end
+        end
+    end
+})
+
+print("HUB Loaded")
