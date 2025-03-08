@@ -14,6 +14,8 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false
 })
 
+Rayfield:LoadConfiguration()
+
 local Tab = Window:CreateTab("ESP Controls", 4483362458)
 
 local ESP = {
@@ -216,6 +218,187 @@ local Slider = Tab:CreateSlider({
             end
         end
     end
+})
+
+-- Create Aimbot Tab
+local AimbotTab = Window:CreateTab("Aimbot Controls", 4483362458)
+
+-- Services
+local players = game:GetService("Players")
+local userInputService = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+local camera = workspace.CurrentCamera
+local localPlayer = players.LocalPlayer
+local drawing = Drawing.new
+
+-- Aimbot Settings
+getgenv().AimbotSettings = {
+    Enabled = false,
+    TeamCheck = false,
+    AliveCheck = true,
+    WallCheck = false,
+    LockPart = "Head",
+    Smoothness = 0.1,
+    TriggerKey = Enum.UserInputType.MouseButton2,
+    FOVSettings = {
+        Enabled = true,
+        Visible = true,
+        Radius = 90,
+        Thickness = 1,
+        Transparency = 1,
+        Color = Color3.fromRGB(255, 255, 255),
+        OutlineColor = Color3.fromRGB(0, 0, 0)
+    }
+}
+
+local Settings = getgenv().AimbotSettings
+local LockedTarget = nil
+
+-- Create FOV Circle
+local FOVCircle = drawing("Circle")
+FOVCircle.Radius = Settings.FOVSettings.Radius
+FOVCircle.Thickness = Settings.FOVSettings.Thickness
+FOVCircle.Filled = false
+FOVCircle.Color = Settings.FOVSettings.Color
+FOVCircle.Transparency = Settings.FOVSettings.Transparency
+FOVCircle.Visible = Settings.FOVSettings.Visible
+
+-- Update FOV Circle Position
+runService.RenderStepped:Connect(function()
+    FOVCircle.Position = userInputService:GetMouseLocation()
+    FOVCircle.Visible = Settings.FOVSettings.Visible
+end)
+
+-- Get Closest Target
+local function GetClosestPlayer()
+    local closestTarget = nil
+    local shortestDistance = Settings.FOVSettings.Radius
+
+    for _, player in pairs(players:GetPlayers()) do
+    if player ~= localPlayer and player.Character and player.Character:FindFirstChild(Settings.LockPart) then
+        
+        -- Check if TeamCheck is enabled and skip teammates
+        if Settings.TeamCheck and player.Team == localPlayer.Team then
+            continue
+        end
+            local part = player.Character[Settings.LockPart]
+            local screenPosition, onScreen = camera:WorldToViewportPoint(part.Position)
+            local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - userInputService:GetMouseLocation()).Magnitude
+
+            if onScreen and distance < shortestDistance then
+                shortestDistance = distance
+                closestTarget = part
+            end
+        end
+    end
+    return closestTarget
+end
+
+-- Aimbot Functionality (Smooth Aim Assist)
+local function AimAtTarget()
+    if not Settings.Enabled or not LockedTarget then return end
+    local targetPosition = LockedTarget.Position
+    local newCFrame = CFrame.new(camera.CFrame.Position, targetPosition)
+    camera.CFrame = camera.CFrame:Lerp(newCFrame, Settings.Smoothness)
+end
+
+-- Update Aimbot While Holding
+runService.RenderStepped:Connect(function()
+    if Settings.Enabled and Settings.Holding then
+        LockedTarget = GetClosestPlayer() -- Constantly update the target
+        AimAtTarget()
+    end
+end)
+
+-- User Input Detection
+userInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Settings.TriggerKey then
+        Settings.Holding = true
+    end
+end)
+
+userInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Settings.TriggerKey then
+        Settings.Holding = false
+        LockedTarget = nil -- Allow new target selection
+    end
+end)
+
+-- UI Controls (Aimbot)
+local ToggleAimbot = AimbotTab:CreateToggle({
+    Name = "Enable Aimbot",
+    CurrentValue = false,
+    Flag = "ToggleAimbot",
+    Callback = function(Value)
+        Settings.Enabled = Value
+    end
+})
+
+local ToggleTeamCheck = AimbotTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = false,
+    Flag = "ToggleTeamCheck",
+    Callback = function(Value)
+        Settings.TeamCheck = Value
+    end
+})
+
+local ToggleFOV = AimbotTab:CreateToggle({
+    Name = "Show FOV Circle",
+    CurrentValue = Settings.FOVSettings.Visible,
+    Flag = "ToggleFOV",
+    Callback = function(Value)
+        Settings.FOVSettings.Visible = Value
+        FOVCircle.Visible = Value -- Instantly update visibility
+        print("FOV Circle Visibility:", Value) -- Debugging print
+    end
+})
+
+local FOVSlider = AimbotTab:CreateSlider({
+    Name = "FOV Radius",
+    Range = {10, 500},
+    Increment = 5,
+    CurrentValue = Settings.FOVSettings.Radius,
+    Flag = "FOVSlider",
+    Callback = function(Value)
+        Settings.FOVSettings.Radius = Value
+        FOVCircle.Radius = Value -- Apply change to the FOV circle immediately
+        print("FOV Radius Set To:", Value) -- Debugging print
+    end
+})
+
+local ColorPicker = AimbotTab:CreateColorPicker({
+    Name = "FOV Circle Color",
+    Color = Settings.FOVSettings.Color, -- Default to current FOV color
+    Flag = "FOVColorPicker",
+    Callback = function(Value)
+        Settings.FOVSettings.Color = Value
+        FOVCircle.Color = Value -- Apply color change instantly
+        print("FOV Circle Color Set To:", Value) -- Debugging print
+    end
+})
+
+local SmoothnessSlider = AimbotTab:CreateSlider({
+    Name = "Smoothness",
+    Range = {0.01, 1},
+    Increment = 0.01,
+    CurrentValue = Settings.Smoothness,
+    Flag = "SmoothnessSlider",
+    Callback = function(Value)
+        Settings.Smoothness = Value
+    end
+})
+
+local ToggleAimbotKeybind = AimbotTab:CreateKeybind({
+    Name = "Toggle Aimbot",
+    CurrentKeybind = "Q",
+    HoldToInteract = false, 
+    Flag = "ToggleAimbotKeybind",
+    Callback = function()
+        Settings.Enabled = not Settings.Enabled
+        Rayfield.Flags["ToggleAimbot"]:Set(Settings.Enabled) -- Sync with the UI toggle
+        print("Aimbot Enabled:", Settings.Enabled) -- Debugging print
+    end,
 })
 
 print("HUB Loaded")
