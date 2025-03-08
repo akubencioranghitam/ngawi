@@ -4,7 +4,7 @@ getgenv().SecureMode = true -- Enable Secure Mode to reduce detection
 
 local Window = Rayfield:CreateWindow({
     Name = "Ngawi Hub",
-    LoadingTitle = "ESP Loader",
+    LoadingTitle = "lol ngawi",
     LoadingSubtitle = "By Raja Malapetaka",
     ConfigurationSaving = {
         Enabled = true,
