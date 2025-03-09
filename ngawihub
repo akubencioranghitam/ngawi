@@ -352,6 +352,18 @@ local ToggleTeamCheck = AimbotTab:CreateToggle({
     end
 })
 
+local TargetPartDropdown = AimbotTab:CreateDropdown({
+    Name = "Target Body Part",
+    Options = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"},
+    CurrentOption = {Settings.LockPart},
+    MultipleOptions = false,
+    Flag = "TargetPartDropdown",
+    Callback = function(Option)
+        Settings.LockPart = Option[1] -- Update the target body part
+        print("Targeting Part Set To:", Option[1]) -- Debugging print
+    end,
+})
+
 local ToggleFOV = AimbotTab:CreateToggle({
     Name = "Show FOV Circle",
     CurrentValue = Settings.FOVSettings.Visible,
