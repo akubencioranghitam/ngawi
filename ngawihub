@@ -35,7 +35,7 @@ local drawings = {}
 local textLabels = {}
 local tracers = {}
 
-local function removeESP(player)
+function removeESP(player)
     if drawings[player] then
         drawings[player]:Remove()
         drawings[player] = nil
@@ -59,34 +59,47 @@ end
 local function updateESP()
     for player, box in pairs(drawings) do
         if ESP.Enabled and player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local rootPart = player.Character.HumanoidRootPart
-            local position, onScreen = camera:WorldToViewportPoint(rootPart.Position)
-            local distance = (camera.CFrame.Position - rootPart.Position).Magnitude
-
-            if onScreen then
-                local size = math.clamp(2000 / position.Z, 20, 300)
-                box.Size = Vector2.new(size, size * 1.5)
-                box.Position = Vector2.new(position.X - size / 2, position.Y - size * 0.75)
-                box.Transparency = ESP.Transparency
-                box.Color = ESP.Color
-                box.Visible = ESP.ShowBox
-
-                local text = textLabels[player]
-                text.Position = Vector2.new(position.X, position.Y - size)
-                text.Text = string.format("%.1f meters", distance)
-                text.Color = Color3.fromRGB(255, 255, 255) -- Keep text color white
-                text.Visible = ESP.ShowDistance
-
-                local tracer = tracers[player]
-                tracer.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
-                tracer.To = Vector2.new(position.X, position.Y)
-                tracer.Transparency = ESP.Transparency
-                tracer.Color = ESP.Color
-                tracer.Visible = ESP.ShowTracer
-            else
+            -- Team Check: Skip teammates if enabled
+            if ESP.TeamCheck and player.Team == players.LocalPlayer.Team then
                 box.Visible = false
                 textLabels[player].Visible = false
                 tracers[player].Visible = false
+            else
+                local rootPart = player.Character.HumanoidRootPart
+                local position, onScreen = camera:WorldToViewportPoint(rootPart.Position)
+                local distance = (camera.CFrame.Position - rootPart.Position).Magnitude
+
+                if onScreen then
+                    local size = math.clamp(2000 / position.Z, 20, 300)
+                    box.Size = Vector2.new(size, size * 1.5)
+                    box.Position = Vector2.new(position.X - size / 2, position.Y - size * 0.75)
+                    box.Transparency = ESP.Transparency
+                    box.Color = ESP.Color
+                    box.Visible = ESP.ShowBox
+
+                    local text = textLabels[player]
+                    text.Position = Vector2.new(position.X, position.Y - size)
+                    text.Text = string.format("%.1f meters", distance)
+                    text.Visible = ESP.ShowDistance
+
+                    local tracer = tracers[player]
+                    tracer.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
+                    tracer.To = Vector2.new(position.X, position.Y)
+                    tracer.Transparency = ESP.Transparency
+
+                    -- 🔥 FIX: Ensure tracer color updates correctly
+                    if ESP.TeamCheck and player.Team == players.LocalPlayer.Team then
+                        tracer.Color = Color3.fromRGB(0, 0, 0) -- Make teammates' tracers black (or invisible)
+                    else
+                        tracer.Color = ESP.Color -- Use selected ESP color
+                    end
+
+                    tracer.Visible = ESP.ShowTracer
+                else
+                    box.Visible = false
+                    textLabels[player].Visible = false
+                    tracers[player].Visible = false
+                end
             end
         else
             removeESP(player)
@@ -120,7 +133,9 @@ end
 
 players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
-        createESP(player)
+        wait(0.5) -- Short delay to prevent missing ESP  
+        removeESP(player) -- Clean up any old ESP  
+        createESP(player) -- Create ESP for new character  
     end)
 end)
 
@@ -128,11 +143,41 @@ players.PlayerRemoving:Connect(function(player)
     removeESP(player)
 end)
 
-for _, player in pairs(players:GetPlayers()) do
-    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        createESP(player)
+local function setupESPForPlayer(player)
+    print("Setting up ESP for:", player.Name)
+
+    local function onCharacterAdded(character)
+        wait(0.5) -- Ensure character loads
+        if character:FindFirstChild("HumanoidRootPart") then
+            removeESP(player) -- Remove old ESP
+            createESP(player) -- Recreate ESP
+            print("ESP applied to:", player.Name)
+        else
+            print("HumanoidRootPart missing for:", player.Name)
+        end
+    end
+
+    local function onCharacterRemoving()
+        removeESP(player) -- Cleanup ESP when character resets
+    end
+
+    -- Connect CharacterAdded and CharacterRemoving events
+    player.CharacterAdded:Connect(onCharacterAdded)
+    player.CharacterRemoving:Connect(onCharacterRemoving)
+
+    -- If player already has a character, create ESP immediately
+    if player.Character then
+        onCharacterAdded(player.Character)
     end
 end
+
+-- Apply ESP to all existing players
+for _, player in pairs(players:GetPlayers()) do
+    setupESPForPlayer(player) -- Setup ESP for each existing player
+end
+
+-- Apply ESP to new players who join later
+players.PlayerAdded:Connect(setupESPForPlayer)
 
 runService.RenderStepped:Connect(updateESP)
 
@@ -176,6 +221,15 @@ local ToggleDistance = Tab:CreateToggle({
     Flag = "ToggleDistance",
     Callback = function(Value)
         ESP.ShowDistance = Value
+    end
+})
+
+local ToggleTeamCheck = Tab:CreateToggle({
+    Name = "Enable Team Check",
+    CurrentValue = ESP.TeamCheck,
+    Flag = "ToggleTeamCheck",
+    Callback = function(Value)
+        ESP.TeamCheck = Value
     end
 })
 
@@ -303,10 +357,29 @@ local function GetClosestPlayer()
     return closestTarget
 end
 
+-- Bullet Drop Functionality --
+local function GetBulletDrop(height, DepthPlayerTarget)
+    local pitch = math.atan2(height, DepthPlayerTarget)
+    local BulletVelocityXY = BulletVelocity * math.cos(pitch)
+    local Time = DepthPlayerTarget / BulletVelocityXY
+    local TotalVerticalDrop = 0.5 * GravityAcceleration * Time * Time
+    return TotalVerticalDrop
+end
+
 -- Aimbot Functionality (Smooth Aim Assist)
 local function AimAtTarget()
     if not Settings.Enabled or not LockedTarget then return end
     local targetPosition = LockedTarget.Position
+
+    -- Bullet Drop Calculation
+    if Settings.BulletDropPrediction then
+        local heightDifference = targetPosition.Y - camera.CFrame.Position.Y
+        local horizontalDistance = (Vector3.new(targetPosition.X, camera.CFrame.Position.Y, targetPosition.Z) - camera.CFrame.Position).Magnitude
+        local bulletDrop = GetBulletDrop(heightDifference, horizontalDistance)
+
+        targetPosition = targetPosition + Vector3.new(0, bulletDrop, 0) -- Adjust for bullet drop
+    end
+
     local newCFrame = CFrame.new(camera.CFrame.Position, targetPosition)
     camera.CFrame = camera.CFrame:Lerp(newCFrame, Settings.Smoothness)
 end
