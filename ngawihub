@@ -275,12 +275,21 @@ local function GetClosestPlayer()
     local shortestDistance = Settings.FOVSettings.Radius
 
     for _, player in pairs(players:GetPlayers()) do
-    if player ~= localPlayer and player.Character and player.Character:FindFirstChild(Settings.LockPart) then
-        
-        -- Check if TeamCheck is enabled and skip teammates
-        if Settings.TeamCheck and player.Team == localPlayer.Team then
-            continue
-        end
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild(Settings.LockPart) then
+            
+            -- ✅ Team Check: Works for games with different team systems
+            if Settings.TeamCheck then
+                if player.Team ~= nil and localPlayer.Team ~= nil then
+                    if player.Team == localPlayer.Team then
+                        continue -- Skip teammates
+                    end
+                elseif player.Character:FindFirstChild("TeamColor") and localPlayer.Character:FindFirstChild("TeamColor") then
+                    if player.Character.TeamColor.Value == localPlayer.Character.TeamColor.Value then
+                        continue -- Skip teammates based on TeamColor
+                    end
+                end
+            end
+
             local part = player.Character[Settings.LockPart]
             local screenPosition, onScreen = camera:WorldToViewportPoint(part.Position)
             local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - userInputService:GetMouseLocation()).Magnitude
