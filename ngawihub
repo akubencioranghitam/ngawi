@@ -19,7 +19,7 @@ Rayfield:LoadConfiguration()
 local Tab = Window:CreateTab("ESP Controls", 4483362458)
 
 local HealthBars = {}
-local ESP = { ShowHealthBar = true, Enabled = true, TeamCheck = false, ShowBox = true, ShowDistance = true, ShowTracer = true, Transparency = 0.5, Color = Color3.fromRGB(255, 0, 0) }
+local ESP = { ShowHealthBar = true, Enabled = false, TeamCheck = false, ShowBox = true, ShowDistance = true, ShowTracer = true, Transparency = 0.5, Color = Color3.fromRGB(255, 0, 0) }
 
 local camera = workspace.CurrentCamera
 local players = game:GetService("Players")
@@ -121,6 +121,8 @@ local function updateESP()
 end
 
 local function createESP(player)
+    if not ESP.Enabled then return end -- Don't create ESP unless enabled
+
     if not drawings[player] and player ~= players.LocalPlayer then
         local espBox = Drawing.new("Square")
         espBox.Thickness = 2
@@ -164,6 +166,8 @@ players.PlayerRemoving:Connect(function(player)
 end)
 
 local function setupESPForPlayer(player)
+    if not ESP.Enabled then return end -- Don't create ESP unless enabled
+
     print("Setting up ESP for:", player.Name)
 
     local function onCharacterAdded(character)
@@ -186,14 +190,16 @@ local function setupESPForPlayer(player)
     player.CharacterRemoving:Connect(onCharacterRemoving)
 
     -- If player already has a character, create ESP immediately
-    if player.Character then
+    if ESP.Enabled and player.Character then
         onCharacterAdded(player.Character)
     end
 end
 
 -- Apply ESP to all existing players
-for _, player in pairs(players:GetPlayers()) do
-    setupESPForPlayer(player) -- Setup ESP for each existing player
+if ESP.Enabled then
+    for _, player in pairs(players:GetPlayers()) do
+        setupESPForPlayer(player)
+    end
 end
 
 -- Apply ESP to new players who join later
@@ -209,10 +215,10 @@ local ToggleESP = Tab:CreateToggle({
         ESP.Enabled = Value
         if Value then
             for _, player in pairs(players:GetPlayers()) do
-                createESP(player)
+                setupESPForPlayer(player) -- Create ESP when toggled ON
             end
         else
-            clearAllESP()
+            clearAllESP() -- Remove ESP when toggled OFF
         end
     end
 })
