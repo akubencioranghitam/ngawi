@@ -18,15 +18,8 @@ Rayfield:LoadConfiguration()
 
 local Tab = Window:CreateTab("ESP Controls", 4483362458)
 
-local ESP = {
-    Enabled = false,
-    ShowBox = true,
-    TeamCheck = false,
-    Color = Color3.fromRGB(255, 0, 0),
-    Transparency = 0.5,
-    ShowTracer = true,
-    ShowDistance = true
-}
+local HealthBars = {}
+local ESP = { ShowHealthBar = true, Enabled = true, TeamCheck = false, ShowBox = true, ShowDistance = true, ShowTracer = true, Transparency = 0.5, Color = Color3.fromRGB(255, 0, 0) }
 
 local camera = workspace.CurrentCamera
 local players = game:GetService("Players")
@@ -34,8 +27,9 @@ local runService = game:GetService("RunService")
 local drawings = {}
 local textLabels = {}
 local tracers = {}
+local HealthBars = {}
 
-function removeESP(player)
+local function removeESP(player)
     if drawings[player] then
         drawings[player]:Remove()
         drawings[player] = nil
@@ -48,6 +42,10 @@ function removeESP(player)
         tracers[player]:Remove()
         tracers[player] = nil
     end
+    if HealthBars[player] then
+        HealthBars[player]:Remove()
+        HealthBars[player] = nil
+    end
 end
 
 local function clearAllESP()
@@ -59,46 +57,61 @@ end
 local function updateESP()
     for player, box in pairs(drawings) do
         if ESP.Enabled and player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            -- Team Check: Skip teammates if enabled
             if ESP.TeamCheck and player.Team == players.LocalPlayer.Team then
                 box.Visible = false
                 textLabels[player].Visible = false
                 tracers[player].Visible = false
+                if HealthBars[player] then HealthBars[player].Visible = false end
             else
-                local rootPart = player.Character.HumanoidRootPart
-                local position, onScreen = camera:WorldToViewportPoint(rootPart.Position)
-                local distance = (camera.CFrame.Position - rootPart.Position).Magnitude
-
-                if onScreen then
-                    local size = math.clamp(2000 / position.Z, 20, 300)
-                    box.Size = Vector2.new(size, size * 1.5)
-                    box.Position = Vector2.new(position.X - size / 2, position.Y - size * 0.75)
-                    box.Transparency = ESP.Transparency
-                    box.Color = ESP.Color
-                    box.Visible = ESP.ShowBox
-
-                    local text = textLabels[player]
-                    text.Position = Vector2.new(position.X, position.Y - size)
-                    text.Text = string.format("%.1f meters", distance)
-                    text.Visible = ESP.ShowDistance
-
-                    local tracer = tracers[player]
-                    tracer.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
-                    tracer.To = Vector2.new(position.X, position.Y)
-                    tracer.Transparency = ESP.Transparency
-
-                    -- 🔥 FIX: Ensure tracer color updates correctly
-                    if ESP.TeamCheck and player.Team == players.LocalPlayer.Team then
-                        tracer.Color = Color3.fromRGB(0, 0, 0) -- Make teammates' tracers black (or invisible)
+                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    local healthRatio = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                    local rootPart = player.Character.HumanoidRootPart
+                    local position, onScreen = camera:WorldToViewportPoint(rootPart.Position)
+                    local distance = (camera.CFrame.Position - rootPart.Position).Magnitude
+                    
+                    if onScreen then
+                        local size = math.clamp(2000 / position.Z, 20, 300)
+                        local xPos = position.X - size / 2
+                        local yPos = position.Y - size * 0.75
+                        
+                        -- Update ESP Box
+                        box.Size = Vector2.new(size, size * 1.5)
+                        box.Position = Vector2.new(xPos, yPos)
+                        box.Transparency = ESP.Transparency
+                        box.Color = ESP.Color
+                        box.Visible = ESP.ShowBox
+                        
+                        -- Update Distance Text
+                        local text = textLabels[player]
+                        text.Position = Vector2.new(position.X, position.Y - size)
+                        text.Text = string.format("%.1f meters", distance)
+                        text.Visible = ESP.ShowDistance
+                        
+                        -- Update Tracer
+                        local tracer = tracers[player]
+                        tracer.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
+                        tracer.To = Vector2.new(position.X, position.Y)
+                        tracer.Transparency = ESP.Transparency
+                        tracer.Color = ESP.TeamCheck and player.Team == players.LocalPlayer.Team and Color3.fromRGB(0, 0, 0) or ESP.Color
+                        tracer.Visible = ESP.ShowTracer
+                        
+                        -- Update Health Bar
+                        if ESP.ShowHealthBar and HealthBars[player] then
+                            local healthBar = HealthBars[player]
+                            healthBar.Size = Vector2.new(5, size * 1.5 * healthRatio)
+                            healthBar.Position = Vector2.new(xPos - 10, yPos + (size * 1.5) * (1 - healthRatio))
+                            healthBar.Color = Color3.fromRGB(math.floor(255 - (255 * healthRatio)), math.floor(255 * healthRatio), 0)
+                            healthBar.Visible = true
+                        else
+                            if HealthBars[player] then HealthBars[player].Visible = false end
+                        end
                     else
-                        tracer.Color = ESP.Color -- Use selected ESP color
+                        box.Visible = false
+                        textLabels[player].Visible = false
+                        tracers[player].Visible = false
+                        if HealthBars[player] then HealthBars[player].Visible = false end
                     end
-
-                    tracer.Visible = ESP.ShowTracer
-                else
-                    box.Visible = false
-                    textLabels[player].Visible = false
-                    tracers[player].Visible = false
                 end
             end
         else
@@ -119,15 +132,22 @@ local function createESP(player)
         espText.Center = true
         espText.Outline = true
         espText.Visible = false
-        espText.Color = Color3.fromRGB(255, 255, 255) -- Ensure text is always white
+        espText.Color = Color3.fromRGB(255, 255, 255)
         
         local tracer = Drawing.new("Line")
         tracer.Thickness = 1
         tracer.Visible = false
         
+        local healthBar = Drawing.new("Square")
+        healthBar.Filled = true
+        healthBar.Thickness = 1
+        healthBar.Visible = false
+        healthBar.Color = Color3.fromRGB(0, 255, 0)
+
         drawings[player] = espBox
         textLabels[player] = espText
         tracers[player] = tracer
+        HealthBars[player] = healthBar
     end
 end
 
@@ -203,6 +223,15 @@ local ToggleBox = Tab:CreateToggle({
     Flag = "ToggleBox",
     Callback = function(Value)
         ESP.ShowBox = Value
+    end
+})
+
+local ToggleHealthBar = Tab:CreateToggle({
+    Name = "Enable Health Bar",
+    CurrentValue = true,
+    Flag = "ToggleHealthBar",
+    Callback = function(Value)
+        ESP.ShowHealthBar = Value
     end
 })
 
