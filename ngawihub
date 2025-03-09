@@ -19,7 +19,7 @@ Rayfield:LoadConfiguration()
 local Tab = Window:CreateTab("ESP Controls", 4483362458)
 
 local HealthBars = {}
-local ESP = { ShowHealthBar = true, Enabled = false, TeamCheck = false, ShowBox = true, ShowDistance = true, ShowTracer = true, Transparency = 0.5, Color = Color3.fromRGB(255, 0, 0) }
+local ESP = { ShowHealthBar = true, Enabled = false, TeamCheck = false, ShowBox = true, ShowDistance = true, ShowTracer = true, Transparency = 0.5, Color = Color3.fromRGB(255, 0, 0), Radius = 500 }
 
 local camera = workspace.CurrentCamera
 local players = game:GetService("Players")
@@ -69,6 +69,13 @@ local function updateESP()
                     local rootPart = player.Character.HumanoidRootPart
                     local position, onScreen = camera:WorldToViewportPoint(rootPart.Position)
                     local distance = (camera.CFrame.Position - rootPart.Position).Magnitude
+					if distance > ESP.Radius then
+						box.Visible = false
+						textLabels[player].Visible = false
+						tracers[player].Visible = false
+						if HealthBars[player] then HealthBars[player].Visible = false end
+						continue
+					end
                     
                     if onScreen then
                         local size = math.clamp(2000 / position.Z, 20, 300)
@@ -287,6 +294,18 @@ local ColorPicker = Tab:CreateColorPicker({
     end
 })
 
+local RadiusSlider = Tab:CreateSlider({
+    Name = "ESP Radius",
+    Range = {50, 1000}, -- Min 50, Max 1000 Studs
+    Increment = 10,
+    Suffix = " Studs",
+    CurrentValue = ESP.Radius,
+    Flag = "SliderESP",
+    Callback = function(Value)
+        ESP.Radius = Value
+    end
+})
+
 local Slider = Tab:CreateSlider({
     Name = "Transparency",
     Range = {0, 1},
@@ -297,7 +316,7 @@ local Slider = Tab:CreateSlider({
     Callback = function(Value)
         ESP.Transparency = Value
         for _, box in pairs(drawings) do
-            if box then
+            if box then	
                 box.Transparency = Value
             end
         end
@@ -310,7 +329,7 @@ local Slider = Tab:CreateSlider({
 })
 
 -- Create Aimbot Tab
-local AimbotTab = Window:CreateTab("Aimbot Controls", 4483362458)
+local AimbotTab = Window:CreateTab("Aimbot Controls", "crosshair")
 
 -- Services
 local players = game:GetService("Players")
