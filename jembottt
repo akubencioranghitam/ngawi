@@ -1,0 +1,99 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+
+-- UI Setup
+local Window = Rayfield:CreateWindow({
+    Name = "ESP Hub",
+    LoadingTitle = "ESP Loader",
+    LoadingSubtitle = "by Professor Synapse",
+    Theme = "DarkBlue"
+})
+local Tab = Window:CreateTab("ESP", "eye")
+
+-- ESP Settings
+local espEnabled, tracersEnabled, distanceEnabled, nameEnabled = false, false, false, false
+local espColor = Color3.fromRGB(255, 0, 0)
+local espObjects = {}
+
+local function createDrawing(type, properties)
+    local drawing = Drawing.new(type)
+    for prop, value in pairs(properties) do
+        drawing[prop] = value
+    end
+    return drawing
+end
+
+local function removeESP(player)
+    if espObjects[player] then
+        for _, obj in pairs(espObjects[player]) do
+            obj:Remove()
+        end
+        espObjects[player] = nil
+    end
+end
+
+local function updateESP()
+    local screenCenterX, screenBottomY = Camera.ViewportSize.X / 2, Camera.ViewportSize.Y
+    local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if rootPart and humanoid and humanoid.Health > 0 then
+                if not espObjects[player] then
+                    espObjects[player] = {
+                        Box = createDrawing("Square", {Thickness = 2, Filled = false, Visible = false, Color = espColor}),
+                        Tracer = createDrawing("Line", {Thickness = 1, Visible = false, Color = espColor}),
+                        Distance = createDrawing("Text", {Size = 18, Color = Color3.fromRGB(255, 255, 255), Center = true, Visible = false}),
+                        Name = createDrawing("Text", {Size = 18, Color = Color3.fromRGB(255, 255, 255), Center = true, Visible = false})
+                    }
+                end
+                
+                local screenPos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+                local box, tracer, distance, name = espObjects[player].Box, espObjects[player].Tracer, espObjects[player].Distance, espObjects[player].Name
+                
+                if onScreen then
+                    local headPos = Camera:WorldToViewportPoint(rootPart.Position + Vector3.new(0, 3, 0))
+                    local footPos = Camera:WorldToViewportPoint(rootPart.Position - Vector3.new(0, 3, 0))
+                    local height, width = footPos.Y - headPos.Y, (footPos.Y - headPos.Y) / 2
+                    
+                    box.Size, box.Position, box.Visible, box.Color = Vector2.new(width, height), Vector2.new(screenPos.X - width / 2, screenPos.Y - height / 2), espEnabled, espColor
+                    
+                    if tracersEnabled then
+                        tracer.From, tracer.To, tracer.Visible, tracer.Color = Vector2.new(screenCenterX, screenBottomY), Vector2.new(screenPos.X, screenPos.Y + height / 2), true, espColor
+                    else tracer.Visible = false end
+                    
+                    if distanceEnabled and localRoot then
+                        distance.Text, distance.Position, distance.Visible = "[" .. math.floor((localRoot.Position - rootPart.Position).Magnitude) .. "m]", Vector2.new(screenPos.X, screenPos.Y + height / 2 + 5), true
+                    else distance.Visible = false end
+                    
+                    if nameEnabled then
+                        name.Text, name.Position, name.Visible = player.Name, Vector2.new(screenPos.X, screenPos.Y - height / 2 - 20), true
+                    else name.Visible = false end
+                else
+                    box.Visible, tracer.Visible, distance.Visible, name.Visible = false, false, false, false
+                end
+            else removeESP(player) end
+        end
+    end
+end
+
+Players.PlayerRemoving:Connect(removeESP)
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(1) -- Ensure character loads properly
+        updateESP()
+    end)
+end)
+
+Tab:CreateToggle({Name = "Enable ESP", CurrentValue = false, Flag = "ToggleESP", Callback = function(value) espEnabled = value end})
+Tab:CreateToggle({Name = "Enable Tracers", CurrentValue = false, Flag = "ToggleTracers", Callback = function(value) tracersEnabled = value end})
+Tab:CreateToggle({Name = "Enable Distance", CurrentValue = false, Flag = "ToggleDistance", Callback = function(value) distanceEnabled = value end})
+Tab:CreateToggle({Name = "Enable Player Names", CurrentValue = false, Flag = "ToggleNames", Callback = function(value) nameEnabled = value end})
+Tab:CreateColorPicker({Name = "ESP Color", Color = Color3.fromRGB(255, 0, 0), Flag = "ESPColor", Callback = function(value) espColor = value end})
+
+RunService.RenderStepped:Connect(updateESP)
