@@ -16,8 +16,10 @@ local Tab = Window:CreateTab("ESP", "eye")
 -- ESP Settings
 local espEnabled = false
 local tracersEnabled = false
+local namesEnabled = false
+local distanceEnabled = false
 local espColor = Color3.fromRGB(255, 0, 0)
-local boxSize = Vector2.new(40, 80) -- Reduced box size
+local baseBoxSize = Vector2.new(40, 80) -- Base box size
 
 -- Table to store ESP Boxes & Traces
 local espBoxes = {}
@@ -37,7 +39,19 @@ local function createESP(player)
     tracer.Thickness = 1
     tracer.Visible = false
 
-    espBoxes[player] = {box = espBox, line = tracer}
+    local nameTag = Drawing.new("Text")
+    nameTag.Color = Color3.fromRGB(255, 255, 255)
+    nameTag.Size = 16
+    nameTag.Center = true
+    nameTag.Visible = false
+
+    local distanceTag = Drawing.new("Text")
+    distanceTag.Color = Color3.fromRGB(255, 255, 255)
+    distanceTag.Size = 16
+    distanceTag.Center = true
+    distanceTag.Visible = false
+
+    espBoxes[player] = {box = espBox, line = tracer, name = nameTag, distance = distanceTag}
 end
 
 -- Function to remove ESP for a player
@@ -45,6 +59,8 @@ local function removeESP(player)
     if espBoxes[player] then
         espBoxes[player].box:Remove()
         espBoxes[player].line:Remove()
+        espBoxes[player].name:Remove()
+        espBoxes[player].distance:Remove()
         espBoxes[player] = nil
     end
 end
@@ -58,6 +74,10 @@ local function updateESP()
         if player ~= localPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             local rootPart = player.Character.HumanoidRootPart
             local screenPos, onScreen = camera:WorldToViewportPoint(rootPart.Position)
+            local distance = (localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude or 50
+            local sizeMultiplier = math.clamp(10 / distance, 0.4, 1) -- Scale based on distance
+            local adjustedBoxSize = baseBoxSize * sizeMultiplier
+            
             local esp = espBoxes[player]
             
             if not esp then
@@ -67,22 +87,40 @@ local function updateESP()
             
             if esp then
                 if onScreen and espEnabled then
-                    esp.box.Size = boxSize
-                    esp.box.Position = Vector2.new(screenPos.X - boxSize.X / 2, screenPos.Y - boxSize.Y / 2)
+                    esp.box.Size = adjustedBoxSize
+                    esp.box.Position = Vector2.new(screenPos.X - adjustedBoxSize.X / 2, screenPos.Y - adjustedBoxSize.Y / 2)
                     esp.box.Visible = true
                     esp.box.Color = espColor
                     
                     if tracersEnabled then
                         esp.line.From = Vector2.new(screenCenterX, screenBottomY)
-                        esp.line.To = Vector2.new(screenPos.X, screenPos.Y + boxSize.Y / 2)
+                        esp.line.To = Vector2.new(screenPos.X, screenPos.Y + adjustedBoxSize.Y / 2)
                         esp.line.Visible = true
                         esp.line.Color = espColor
                     else
                         esp.line.Visible = false
                     end
+                    
+                    if namesEnabled then
+                        esp.name.Text = player.Name
+                        esp.name.Position = Vector2.new(screenPos.X, screenPos.Y - adjustedBoxSize.Y / 2 - 15)
+                        esp.name.Visible = true
+                    else
+                        esp.name.Visible = false
+                    end
+                    
+                    if distanceEnabled then
+                        esp.distance.Text = string.format("%.1fm", distance)
+                        esp.distance.Position = Vector2.new(screenPos.X, screenPos.Y + adjustedBoxSize.Y / 2 + 5)
+                        esp.distance.Visible = true
+                    else
+                        esp.distance.Visible = false
+                    end
                 else
                     esp.box.Visible = false
                     esp.line.Visible = false
+                    esp.name.Visible = false
+                    esp.distance.Visible = false
                 end
             end
         else
@@ -112,6 +150,24 @@ Tab:CreateToggle({
     Flag = "ToggleTracers",
     Callback = function(value)
         tracersEnabled = value
+    end
+})
+
+Tab:CreateToggle({
+    Name = "Show Player Names",
+    CurrentValue = false,
+    Flag = "ToggleNames",
+    Callback = function(value)
+        namesEnabled = value
+    end
+})
+
+Tab:CreateToggle({
+    Name = "Show Distance",
+    CurrentValue = false,
+    Flag = "ToggleDistance",
+    Callback = function(value)
+        distanceEnabled = value
     end
 })
 
